@@ -35,7 +35,7 @@ object IpAddr {
     toBigInt(bytes) | maxMask
   }
 
-  val rgen = new scala.util.Random
+  val rgen = new java.security.SecureRandom
 
 }
 
