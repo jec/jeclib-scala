@@ -1,5 +1,7 @@
 name := "jeclib"
 
+organization := "net.jcain"
+
 version := "0.0.1"
 
 scalaVersion := "2.11.7"
