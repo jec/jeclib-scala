@@ -8,9 +8,15 @@ object IpAddr {
 
   def apply(str: String): IpAddr = {
     val pieces = str.split("/")
-    val mask = pieces(1).toInt
-    val bytes = InetAddress.getByName(pieces(0)).getAddress
-    if (bytes.size == 4) new Ip4Addr(bytes, mask) else new Ip6Addr(bytes, mask)
+    apply(pieces(0), if (pieces.size == 0) 0 else pieces(1).toInt)
+  }
+
+  def apply(str: String, mask: Int): IpAddr = {
+    val bytes = InetAddress.getByName(str).getAddress
+    if (bytes.size == 4)
+      new Ip4Addr(bytes, if (mask == 0) Ip4Addr.identity else mask)
+    else
+      new Ip6Addr(bytes, if (mask == 0) Ip6Addr.identity else mask)
   }
 
   def apply(int: BigInt, family: Symbol, maskp: Option[Int] = None): IpAddr = {
