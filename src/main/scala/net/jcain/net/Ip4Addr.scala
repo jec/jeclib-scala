@@ -3,10 +3,14 @@ package net.jcain.net
 object Ip4Addr {
 
   val maxValue = BigInt(2).pow(32) - 1
+  val identity = 32
 
 }
 
 class Ip4Addr(bytes: Array[Byte], mask: Int) extends IpAddr(bytes, mask) {
+
+  if (bytes.size != 4) throw new IllegalArgumentException("bytes must be of length 4")
+  if (mask < 1 || mask > 128) throw new IllegalArgumentException("mask must be between 1 and 128")
 
   val inverseMaskAddr = BigInt(2).pow(32 - mask) - 1
   val maskAddr = Ip4Addr.maxValue - inverseMaskAddr
@@ -18,7 +22,7 @@ class Ip4Addr(bytes: Array[Byte], mask: Int) extends IpAddr(bytes, mask) {
 
   override def isIpv4 = true
 
-  def identity = 32
+  def identity = Ip4Addr.identity
 
   def family = 'ipv4
 

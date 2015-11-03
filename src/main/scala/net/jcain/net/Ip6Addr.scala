@@ -5,6 +5,7 @@ import java.net.InetAddress
 object Ip6Addr {
 
   val maxValue = BigInt(2).pow(128) - 1
+  val identity = 128
 
 }
 
@@ -27,7 +28,7 @@ class Ip6Addr(bytes: Array[Byte], mask: Int) extends IpAddr(bytes, mask) {
 
   override def isIpv6 = true
 
-  def identity = 128
+  def identity = Ip6Addr.identity
 
   def family = 'ipv6
 
