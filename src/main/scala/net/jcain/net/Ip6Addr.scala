@@ -7,6 +7,19 @@ object Ip6Addr {
   val maxValue = BigInt(2).pow(128) - 1
   val identity = 128
 
+  def apply(str: String): Ip6Addr = {
+    val pieces = str.split("/")
+    apply(pieces(0), if (pieces.size == 1) identity else pieces(1).toInt)
+  }
+
+  def apply(str: String, mask: Int): Ip6Addr = {
+    val bytes = InetAddress.getByName(str).getAddress
+    if (bytes.size == 16)
+      new Ip6Addr(bytes, mask)
+    else
+      throw new IllegalArgumentException(s"invalid IPv6 address: $str")
+  }
+
 }
 
 class Ip6Addr(bytes: Array[Byte], mask: Int) extends IpAddr(bytes, mask) {
@@ -37,6 +50,8 @@ class Ip6Addr(bytes: Array[Byte], mask: Int) extends IpAddr(bytes, mask) {
     case _ => false
   }
 
-  override def toString = s"${InetAddress.getByAddress(bytes).getHostAddress}/$mask"
+  def asString = s"${InetAddress.getByAddress(bytes).getHostAddress}"
+
+  override def toString = s"$asString/$mask"
 
 }

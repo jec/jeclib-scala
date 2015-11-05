@@ -1,9 +1,24 @@
 package net.jcain.net
 
+import java.net.InetAddress
+
 object Ip4Addr {
 
   val maxValue = BigInt(2).pow(32) - 1
   val identity = 32
+
+  def apply(str: String): Ip4Addr = {
+    val pieces = str.split("/")
+    apply(pieces(0), if (pieces.size == 1) identity else pieces(1).toInt)
+  }
+
+  def apply(str: String, mask: Int): Ip4Addr = {
+    val bytes = InetAddress.getByName(str).getAddress
+    if (bytes.size == 4)
+      new Ip4Addr(bytes, mask)
+    else
+      throw new IllegalArgumentException(s"invalid IPv4 address: $str")
+  }
 
 }
 
@@ -31,6 +46,8 @@ class Ip4Addr(bytes: Array[Byte], mask: Int) extends IpAddr(bytes, mask) {
     case _ => false
   }
 
-  override def toString = s"${bytes.map(b => if (b < 0) 256 + b else b).mkString(".")}/$mask"
+  def asString = s"${bytes.map(b => if (b < 0) 256 + b else b).mkString(".")}"
+
+  override def toString = s"$asString/$mask"
 
 }

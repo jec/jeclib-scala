@@ -8,7 +8,7 @@ object IpAddr {
 
   def apply(str: String): IpAddr = {
     val pieces = str.split("/")
-    apply(pieces(0), if (pieces.size == 0) 0 else pieces(1).toInt)
+    apply(pieces(0), if (pieces.size == 1) 0 else pieces(1).toInt)
   }
 
   def apply(str: String, mask: Int): IpAddr = {
@@ -76,6 +76,8 @@ abstract class IpAddr(val bytes: Array[Byte], val mask: Int) {
   def isIdentity = mask == identity
 
   def family: Symbol
+
+  def asString: String
 
   override def hashCode = 41 * (41 * (41 + asBigInt.hashCode) + mask)
 
