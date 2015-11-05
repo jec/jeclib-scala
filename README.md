@@ -12,6 +12,7 @@ included with EventMachine for Ruby.
 ## Examples
 
 ```scala
+import net.jcain.util.BufferedTokenizer
 val buffer = new BufferedTokenizer
 println(buffer.extract("This\nis a\ntest\nof").toList)
 println(buffer.extract(" the\nemergency").toList)
@@ -24,6 +25,11 @@ _produces:_
     List(of the)
     List(emergency, broadcast, system)
 
+# *IntervalCounter
+
+This family of classes provides counters by a fixed interval, where applied
+increments that are older than the interval are aged out.
+
 # IpAddr
 
 The IpAddr class and its subclasses provide IP address manipulation, including
@@ -34,6 +40,7 @@ I've found useful.
 ## Examples
 
 ```scala
+import net.jcain.net.IpAddr
 val range = IpAddr("192.168.10.0/24")
 val ip = IpAddr("192.168.10.50/32")
 println(range)
@@ -55,6 +62,11 @@ _produces:_
     2001:abcd:1234:5678:1354:1bcc:4e88:bc4/128
     2001:abcd:1234:5678:5e05:8c1e:525f:8d6b/128
     2001:abcd:1234:5678:9114:ae51:fd44:b040/128
+
+# Resolver
+
+This DNS resolver is an Akka Actor that does DNS resolution of most common
+resource record types (A, AAAA, CNAME, MX, NS, SOA) and caches the results.
 
 # License
 
