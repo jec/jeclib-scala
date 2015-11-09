@@ -2,15 +2,19 @@ package net.jcain.net
 
 import akka.actor.{Actor, ActorRef}
 import collection.JavaConversions._
+import java.time.Instant
 import javax.naming.Context
 import javax.naming.directory.{Attribute, InitialDirContext}
 import java.util.Properties
 import scala.collection.immutable.HashMap
 import scala.collection.mutable
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 object Resolver {
 
-  private val rgen = new java.security.SecureRandom
+  val Default_Positive_TTL =  1 hour
+  val Default_Negative_TTL = 10 minutes
 
   //
   // ResourceTypes: used in requests
@@ -107,15 +111,34 @@ object Resolver {
   // request messages
   final case class Resolve(name: String, rtype: ResourceType)
   protected final case class ResolveMore(name: String, rtype: ResourceType, domain: String)
+  protected object ExpireCacheEntries
 
   // reply messages
   final case class Result(name: String, rtype: ResourceType, answer: Set[_ <: Resource])
   final case class NotFound(name: String, rtype: ResourceType)
 }
 
-class Resolver extends Actor {
+class Resolver(
+  positiveTtl: FiniteDuration = Resolver.Default_Positive_TTL,
+  negativeTtl: FiniteDuration = Resolver.Default_Negative_TTL
+) extends Actor {
 
   import Resolver._
+
+  class CacheTime(val name: String, val rtype: ResourceType, val time: Instant = Instant.now) {
+    def compare(that: CacheTime) =
+      if (time.isBefore(that.time)) -1 else if (time.isAfter(that.time)) 1 else 0
+    override def equals(other: Any) = other match {
+      case that: CacheTime => name == that.name && rtype == that.rtype && time == that.time
+      case _ => false
+    }
+    override def hashCode = 41 * (41 * (41 + name.hashCode) + rtype.hashCode) + time.hashCode
+    override def toString = s"CacheTime($name, $rtype, $time)"
+  }
+
+  implicit object CacheTimeOrdering extends Ordering[CacheTime] {
+    def compare(x: CacheTime, y: CacheTime) = x compare y
+  }
 
   class PendingMx(var actors: Set[ActorRef], var lookups: Set[(String, ResourceType)], val answer: Set[MX_RR]) {
     def addIps(exchange: String, rtype: ResourceType, domain: String, result: Set[_ <: Resolver.Resource]): Boolean = {
@@ -138,10 +161,15 @@ class Resolver extends Actor {
     }
   }
 
+  val cache = mutable.HashMap.empty[(String, ResourceType), Set[_ <: Resolver.Resource]]
+  val positiveCacheTimes = mutable.PriorityQueue.empty[CacheTime]
+  val negativeCacheTimes = mutable.PriorityQueue.empty[CacheTime]
+  val pending = mutable.HashMap.empty[String, PendingMx]
   val env = new Properties
   env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.dns.DnsContextFactory")
   val ctx = new InitialDirContext(env)
-  val pending = mutable.HashMap.empty[String, PendingMx]
+
+  context.system.scheduler.schedule(1 minute, 1 minute, self, ExpireCacheEntries)
 
   def receive = {
     case Resolve(name, rtype) =>
@@ -174,17 +202,30 @@ class Resolver extends Actor {
         case Some(result) => processPendingMx(name, rtype, domain, result)
         case None => processPendingMx(name, rtype, domain, Set())
       }
+
+    case ExpireCacheEntries => expireCacheEntries()
   }
 
-  protected def lookUp(name: String, rtype: ResourceType): Option[Set[_ <: Resolver.Resource]] = try {
-    val attrs = ctx.getAttributes(name, Array(rtype.asString))
-    attrs.get(rtype.asString) match {
-      case null => None
-      case attr => Some(rtype.parseResult(attr))
+  protected def lookUp(name: String, rtype: ResourceType): Option[Set[_ <: Resolver.Resource]] =
+    if (cache.contains((name, rtype))) {
+      Some(cache((name, rtype)))
+    } else {
+      try {
+        ctx.getAttributes(name, Array(rtype.asString)).get(rtype.asString) match {
+          case null =>
+            addToCache(name, rtype, Set())
+            None
+          case attr =>
+            val result = rtype.parseResult(attr)
+            addToCache(name, rtype, result)
+            Some(result)
+        }
+      } catch {
+        case e: javax.naming.NameNotFoundException =>
+          addToCache(name, rtype, Set())
+          None
+      }
     }
-  } catch {
-    case e: javax.naming.NameNotFoundException => None
-  }
 
   protected def processPendingMx(name: String, rtype: ResourceType, domain: String, result: Set[_ <: Resource]) =
     if (pending.contains(domain)) {
@@ -195,5 +236,27 @@ class Resolver extends Actor {
         pending -= domain
       }
     }
+
+  protected def addToCache(name: String, rtype: ResourceType, result: Set[_ <: Resource]) = {
+    cache((name, rtype)) = result
+    (if (result.isEmpty) negativeCacheTimes else positiveCacheTimes) += new CacheTime(name, rtype)
+  }
+
+  protected def expireCacheEntries(now: Instant = Instant.now) = {
+    val positiveExpiry = now.minusSeconds(positiveTtl.toSeconds)
+    val negativeExpiry = now.minusSeconds(negativeTtl.toSeconds)
+    var head = positiveCacheTimes.head
+    while (head.time.isBefore(positiveExpiry)) {
+      cache -= ((head.name, head.rtype))
+      positiveCacheTimes.dequeue()
+      head = positiveCacheTimes.head
+    }
+    head = negativeCacheTimes.head
+    while (head.time.isBefore(negativeExpiry)) {
+      cache -= ((head.name, head.rtype))
+      negativeCacheTimes.dequeue()
+      head = negativeCacheTimes.head
+    }
+  }
 
 }

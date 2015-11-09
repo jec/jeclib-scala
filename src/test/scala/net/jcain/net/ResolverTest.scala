@@ -3,6 +3,7 @@ package net.jcain.net
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import scala.concurrent.duration._
 
 class ResolverTest extends TestKit(ActorSystem("ResolverTest"))
 with WordSpecLike with BeforeAndAfterAll with Matchers
@@ -16,7 +17,7 @@ with ImplicitSender {
   val Jcain_v6_MX_RR = Jcain_v6_MX.foldLeft(Set.empty[AAAA_RR])((set, ipaddr) => set + new AAAA_RR(ipaddr))
 
   class ResolverFixture(label: String) {
-    val resolver = system.actorOf(Props(classOf[Resolver]), s"resolv-$label")
+    val resolver = system.actorOf(Props(classOf[Resolver], 1 hour, 10 minutes), s"resolv-$label")
     val testProbe = TestProbe(s"test-$label")
   }
 
