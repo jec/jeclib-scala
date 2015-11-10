@@ -1,6 +1,6 @@
 package net.jcain.net
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{ActorLogging, Actor, ActorRef}
 import collection.JavaConversions._
 import java.time.Instant
 import javax.naming.Context
@@ -121,7 +121,7 @@ object Resolver {
 class Resolver(
   positiveTtl: FiniteDuration = Resolver.Default_Positive_TTL,
   negativeTtl: FiniteDuration = Resolver.Default_Negative_TTL
-) extends Actor {
+) extends Actor with ActorLogging {
 
   import Resolver._
 
@@ -245,18 +245,20 @@ class Resolver(
   protected def expireCacheEntries(now: Instant = Instant.now) = {
     val positiveExpiry = now.minusSeconds(positiveTtl.toSeconds)
     val negativeExpiry = now.minusSeconds(negativeTtl.toSeconds)
-    var head = positiveCacheTimes.head
-    while (head.time.isBefore(positiveExpiry)) {
-      cache -= ((head.name, head.rtype))
-      positiveCacheTimes.dequeue()
-      head = positiveCacheTimes.head
-    }
-    head = negativeCacheTimes.head
-    while (head.time.isBefore(negativeExpiry)) {
-      cache -= ((head.name, head.rtype))
-      negativeCacheTimes.dequeue()
-      head = negativeCacheTimes.head
-    }
+    positiveCacheTimes.dropWhile(head => {
+      if (head.time.isBefore(positiveExpiry)) {
+        cache -= ((head.name, head.rtype))
+        log.debug(s"Expiring (${head.name}, ${head.rtype}) from positive cache")
+        true
+      } else false
+    })
+    negativeCacheTimes.dropWhile(head => {
+      if (head.time.isBefore(negativeExpiry)) {
+        cache -= ((head.name, head.rtype))
+        log.debug(s"Expiring (${head.name}, ${head.rtype}) from negative cache")
+        true
+      } else false
+    })
   }
 
 }
