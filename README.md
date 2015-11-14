@@ -68,6 +68,11 @@ _produces:_
 This DNS resolver is an Akka Actor that does DNS resolution of most common
 resource record types (A, AAAA, CNAME, MX, NS, SOA) and caches the results.
 
+# URI
+
+This is a simple wrapper around java.net.URI that provides a couple unapply()
+methods for pattern matching.
+
 # License
 
 This library is licensed under the three-clause BSD license (see LICENSE.txt).
