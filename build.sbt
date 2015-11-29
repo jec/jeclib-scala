@@ -19,7 +19,7 @@ libraryDependencies ++= {
 
 scalacOptions ++= Seq(
   "-deprecation",
-  "-encoding", "UTF-8",       // yes, this is 2 args
+  "-encoding", "UTF-8",
   "-feature",
   "-language:existentials",
   "-language:higherKinds",
@@ -28,9 +28,9 @@ scalacOptions ++= Seq(
   //"-Xfatal-warnings",
   "-Xlint",
   "-Yno-adapted-args",
-  "-Ywarn-dead-code",        // N.B. doesn't work well with the ??? hole
+  "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
   //"-Ywarn-value-discard",
   "-Xfuture",
-  "-Ywarn-unused-import"     // 2.11 only
+  "-Ywarn-unused-import"
 )
