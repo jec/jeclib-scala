@@ -14,7 +14,7 @@ object Ip6Addr {
 
   def apply(str: String, mask: Int): Ip6Addr = {
     val bytes = InetAddress.getByName(str).getAddress
-    if (bytes.size == 16)
+    if (bytes.length == 16)
       new Ip6Addr(bytes, mask)
     else
       throw new IllegalArgumentException(s"invalid IPv6 address: $str")
@@ -24,15 +24,15 @@ object Ip6Addr {
 
 class Ip6Addr(bytes: Array[Byte], mask: Int) extends IpAddr(bytes, mask) {
 
-  if (bytes.size != 16) throw new IllegalArgumentException("bytes must be of length 16")
+  if (bytes.length != 16) throw new IllegalArgumentException("bytes must be of length 16")
   if (mask < 1 || mask > 128) throw new IllegalArgumentException("mask must be between 1 and 128")
 
   val inverseMaskAddr = BigInt(2).pow(128 - mask) - 1
   val maskAddr = Ip6Addr.maxValue - inverseMaskAddr
 
   override def reverse = {
-    val nibbleCount = if (mask == 0) 0 else ((mask / 4.0).floor).toInt
-    val chars = bytes.foldLeft(List.empty[Char])((list, byte) => {
+    val nibbleCount = if (mask == 0) 0 else (mask / 4.0).floor.toInt
+    val chars = bytes.map(_.toInt).foldLeft(List[Char]())((list, byte) => {
       val hex = (if (byte < 0) 256 + byte else byte).toHexString.toCharArray
       if (hex.size == 1) hex(0) :: '0' :: list else hex(1) :: hex(0) :: list
     })

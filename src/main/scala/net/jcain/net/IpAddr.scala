@@ -4,7 +4,7 @@ import java.net.InetAddress
 
 object IpAddr {
 
-  val Families = Map('ipv4 -> (Ip4Addr.maxValue, 32, 4), 'ipv6 -> (Ip6Addr.maxValue, 128, 16))
+  val Families = Map('ipv4 -> ((Ip4Addr.maxValue, 32, 4)), 'ipv6 -> ((Ip6Addr.maxValue, 128, 16)))
 
   def apply(str: String): IpAddr = {
     val pieces = str.split("/")
@@ -27,14 +27,14 @@ object IpAddr {
     val bytes = ipInt.toByteArray
     // for IPv4 values, toByteArray() returns 5 elements; for IPv6 it returns
     // 16 elements
-    val adjBytes = if (family == 'ipv4 && bytes.size == 5) bytes.tail else bytes
+    val adjBytes = if (family == 'ipv4 && bytes.length == 5) bytes.tail else bytes
     // pad as necessary to the proper byte count for the family
-    val allBytes = new Array[Byte](byteCount - adjBytes.size) ++ adjBytes
+    val allBytes = new Array[Byte](byteCount - adjBytes.length) ++ adjBytes
     if (family == 'ipv4) new Ip4Addr(allBytes, mask) else new Ip6Addr(allBytes, mask)
   }
 
   def toBigInt(bytes: Array[Byte]): BigInt =
-    bytes.foldLeft(BigInt(0))((sum, byte) => (sum << 8) + (if (byte < 0) 256 + byte else byte))
+    bytes.map(_.toInt).map(x => if (x < 0) x + 256 else x).foldLeft(BigInt(0))((sum, byte) => (sum << 8) + byte)
 
   def getMaxBigInt(bytes: Array[Byte], mask: Int, maxBits: Int): BigInt = {
     val maxMask = BigInt(2).pow(maxBits - mask) - 1
