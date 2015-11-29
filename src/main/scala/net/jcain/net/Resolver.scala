@@ -1,6 +1,6 @@
 package net.jcain.net
 
-import akka.actor.{ActorLogging, Actor, ActorRef}
+import akka.actor.{Actor, ActorLogging, ActorRef}
 import collection.JavaConversions._
 import java.time.Instant
 import javax.naming.Context
@@ -13,8 +13,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 object Resolver {
 
-  val Default_Positive_TTL =  1 hour
-  val Default_Negative_TTL = 10 minutes
+  val Default_Positive_TTL =  1.hour
+  val Default_Negative_TTL = 10.minutes
 
   //
   // ResourceTypes: used in requests
@@ -111,11 +111,14 @@ object Resolver {
   // request messages
   final case class Resolve(name: String, rtype: ResourceType)
   protected final case class ResolveMore(name: String, rtype: ResourceType, domain: String)
-  protected object ExpireCacheEntries
+  final case class ExpireCacheEntries(now: Instant = Instant.now)
+  case object GetCacheEntries
 
   // reply messages
   final case class Result(name: String, rtype: ResourceType, answer: Set[_ <: Resource])
   final case class NotFound(name: String, rtype: ResourceType)
+  final case class CacheEntries(cache: Map[(String, ResourceType), Set[_ <: Resource]])
+
 }
 
 class Resolver(
@@ -125,7 +128,7 @@ class Resolver(
 
   import Resolver._
 
-  class CacheTime(val name: String, val rtype: ResourceType, val time: Instant = Instant.now) {
+  case class CacheTime(name: String, rtype: ResourceType, time: Instant = Instant.now) {
     def compare(that: CacheTime) =
       if (time.isBefore(that.time)) -1 else if (time.isAfter(that.time)) 1 else 0
     override def equals(other: Any) = other match {
@@ -134,10 +137,6 @@ class Resolver(
     }
     override def hashCode = 41 * (41 * (41 + name.hashCode) + rtype.hashCode) + time.hashCode
     override def toString = s"CacheTime($name, $rtype, $time)"
-  }
-
-  implicit object CacheTimeOrdering extends Ordering[CacheTime] {
-    def compare(x: CacheTime, y: CacheTime) = x compare y
   }
 
   class PendingMx(var actors: Set[ActorRef], var lookups: Set[(String, ResourceType)], val answer: Set[MX_RR]) {
@@ -161,15 +160,15 @@ class Resolver(
     }
   }
 
-  val cache = mutable.HashMap.empty[(String, ResourceType), Set[_ <: Resolver.Resource]]
-  val positiveCacheTimes = mutable.PriorityQueue.empty[CacheTime]
-  val negativeCacheTimes = mutable.PriorityQueue.empty[CacheTime]
-  val pending = mutable.HashMap.empty[String, PendingMx]
+  val cache = mutable.HashMap[(String, ResourceType), Set[_ <: Resolver.Resource]]()
+  val positiveCacheTimes = mutable.Queue[CacheTime]()
+  val negativeCacheTimes = mutable.Queue[CacheTime]()
+  val pending = mutable.HashMap[String, PendingMx]()
   val env = new Properties
   env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.dns.DnsContextFactory")
   val ctx = new InitialDirContext(env)
 
-  context.system.scheduler.schedule(1 minute, 1 minute, self, ExpireCacheEntries)
+  context.system.scheduler.schedule(1.minute, 1.minute, self, ExpireCacheEntries)
 
   def receive = {
     case Resolve(name, rtype) =>
@@ -203,7 +202,9 @@ class Resolver(
         case None => processPendingMx(name, rtype, domain, Set())
       }
 
-    case ExpireCacheEntries => expireCacheEntries()
+    case ExpireCacheEntries(now) => expireCacheEntries(now)
+
+    case GetCacheEntries => sender() ! CacheEntries(cache.toMap)
   }
 
   protected def lookUp(name: String, rtype: ResourceType): Option[Set[_ <: Resolver.Resource]] =
@@ -224,10 +225,13 @@ class Resolver(
         case e: javax.naming.NameNotFoundException =>
           addToCache(name, rtype, Set())
           None
+        case e: javax.naming.CommunicationException =>
+          log.error("Lookup ({}, {}) failed: {}", name, rtype, e.getMessage)
+          None
       }
     }
 
-  protected def processPendingMx(name: String, rtype: ResourceType, domain: String, result: Set[_ <: Resource]) =
+  protected def processPendingMx(name: String, rtype: ResourceType, domain: String, result: Set[_ <: Resource]): Unit =
     if (pending.contains(domain)) {
       val pendingMx = pending(domain)
       if (pendingMx.addIps(name, rtype, domain, result)) {
@@ -242,23 +246,19 @@ class Resolver(
     (if (result.isEmpty) negativeCacheTimes else positiveCacheTimes) += new CacheTime(name, rtype)
   }
 
-  protected def expireCacheEntries(now: Instant = Instant.now) = {
+  protected def expireCacheEntries(now: Instant) = {
     val positiveExpiry = now.minusSeconds(positiveTtl.toSeconds)
     val negativeExpiry = now.minusSeconds(negativeTtl.toSeconds)
-    positiveCacheTimes.dropWhile(head => {
-      if (head.time.isBefore(positiveExpiry)) {
-        cache -= ((head.name, head.rtype))
-        log.debug(s"Expiring (${head.name}, ${head.rtype}) from positive cache")
-        true
-      } else false
-    })
-    negativeCacheTimes.dropWhile(head => {
-      if (head.time.isBefore(negativeExpiry)) {
-        cache -= ((head.name, head.rtype))
-        log.debug(s"Expiring (${head.name}, ${head.rtype}) from negative cache")
-        true
-      } else false
-    })
+    while (positiveCacheTimes.nonEmpty && positiveCacheTimes.head.time.isBefore(positiveExpiry)) {
+      val ct = positiveCacheTimes.dequeue()
+      cache -= ((ct.name, ct.rtype))
+      log.debug(s"Expiring (${ct.name}, ${ct.rtype}) from positive cache")
+    }
+    while (negativeCacheTimes.nonEmpty && negativeCacheTimes.head.time.isBefore(negativeExpiry)) {
+      val ct = positiveCacheTimes.dequeue()
+      cache -= ((ct.name, ct.rtype))
+      log.debug(s"Expiring (${ct.name}, ${ct.rtype}) from negative cache")
+    }
   }
 
 }

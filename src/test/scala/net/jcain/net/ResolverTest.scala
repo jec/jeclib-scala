@@ -17,13 +17,11 @@ with ImplicitSender {
   val Jcain_v6_MX_RR = Jcain_v6_MX.foldLeft(Set.empty[AAAA_RR])((set, ipaddr) => set + new AAAA_RR(ipaddr))
 
   class ResolverFixture(label: String) {
-    val resolver = system.actorOf(Props(classOf[Resolver], 1 hour, 10 minutes), s"resolv-$label")
+    val resolver = system.actorOf(Props(classOf[Resolver], 1.hour, 10.minutes), s"resolv-$label")
     val testProbe = TestProbe(s"test-$label")
   }
 
-  override def afterAll() {
-    system.terminate()
-  }
+  override def afterAll(): Unit = system.terminate()
 
   "Resolver" when {
 
@@ -105,6 +103,31 @@ with ImplicitSender {
           // stop test
           system.stop(resolver)
         }
+      }
+    }
+
+    "receives ExpireCacheEntries" should {
+      "expire old entries" in new ResolverFixture("expire") {
+        // request an MX records
+        resolver.tell(Resolve("jcain.net", MX), testProbe.ref)
+        testProbe.expectMsgPF() { case r: Result => r }
+
+        // check that they're in the cache
+        resolver.tell(GetCacheEntries, testProbe.ref)
+        val cache = testProbe.expectMsgPF() { case CacheEntries(c) => c }
+
+        cache.keySet shouldBe Set(("jcain.net", MX), ("mail.jcain.net.", A), ("mail.jcain.net.", AAAA))
+
+        // tell the Resolver to expire the entries for a point 61 mins into the future
+        resolver.tell(ExpireCacheEntries(java.time.Instant.now.plusSeconds(3660)), testProbe.ref)
+
+        // wait and check that the cache is empty
+        Thread.sleep(2)
+        resolver.tell(GetCacheEntries, testProbe.ref)
+        testProbe.expectMsg(CacheEntries(Map()))
+
+        // stop test
+        system.stop(resolver)
       }
     }
 
