@@ -19,7 +19,10 @@ abstract class IntervalCounter(val resolution: Int = 5) {
   private var _total: Long = 0
   val entries = mutable.Queue.empty[Entry]
 
-  def total = _total
+  def total = {
+    expire()
+    _total
+  }
 
   /**
     * The number of seconds in the time unit by which we will count
