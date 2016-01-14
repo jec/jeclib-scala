@@ -4,12 +4,16 @@ import org.scalatest.{Matchers, FunSpec}
 
 class URISpec extends FunSpec with Matchers {
 
+  class URIFixture(uriString: String) {
+    val uri = URI(uriString)
+  }
+
   describe("URI") {
 
     describe("File") {
       describe("with non-file URI") {
         it("returns None") {
-          new URI("http://tremtek.com/") match {
+          URI("http://jcain.net/") match {
             case URI.File(path) => assert(false)
             case _ => assert(true)
           }
@@ -17,12 +21,12 @@ class URISpec extends FunSpec with Matchers {
       }
       describe("with file URI") {
         it("returns the path") {
-          new URI("/this/is/a/path") match {
+          URI("/this/is/a/path") match {
             case URI.File(path) =>
               path shouldBe "/this/is/a/path"
             case _ => assert(false)
           }
-          new URI("file:///this/is/a/path") match {
+          URI("file:///this/is/a/path") match {
             case URI.File(path) =>
               path shouldBe "/this/is/a/path"
             case _ => assert(false)
@@ -31,30 +35,31 @@ class URISpec extends FunSpec with Matchers {
       }
     }
 
-    describe("SchemeSpecific") {
-      describe("with non-scheme-specific URI") {
-        it("returns None") {
-          new URI("http://tremtek.com/") match {
-            case URI.SchemeSpecific(scheme, schemeSpecificPart) => assert(false)
+    describe("Opaque") {
+      describe("with non-opaque URI") {
+        it("returns None") (new URIFixture("http://jcain.net/") {
+          uri match {
+            case URI.Opaque(scheme, schemeSpecificPart) => assert(false)
             case _ => assert(true)
           }
-        }
+          uri.isOpaque shouldBe false
+        })
       }
-      describe("with scheme-specific URI") {
-        it("returns the scheme and scheme-specific-part") {
-          new URI("centcom:get_next_job") match {
-            case URI.SchemeSpecific(scheme, schemeSpecificPart) =>
-              scheme shouldBe "centcom"
-              schemeSpecificPart shouldBe "get_next_job"
+      describe("with opaque URI") {
+        it("returns the scheme and scheme-specific-part")(new URIFixture("mailto:jeclib@jcain.net") {
+          uri match {
+            case URI.Opaque(scheme, schemeSpecificPart) =>
+              scheme shouldBe "mailto"
+              schemeSpecificPart shouldBe "jeclib@jcain.net"
             case _ => assert(false)
           }
-          new URI("centcom:get_next_job") match {
-            case URI.SchemeSpecific("blah", schemeSpecificPart) => assert(false)
-            case URI.SchemeSpecific("centcom", schemeSpecificPart) =>
-              schemeSpecificPart shouldBe "get_next_job"
+          uri match {
+            case URI.Opaque("nosuchscheme", schemeSpecificPart) => assert(false)
+            case URI.Opaque("mailto", schemeSpecificPart) =>
+              schemeSpecificPart shouldBe "jeclib@jcain.net"
             case _ => assert(false)
           }
-        }
+        })
       }
     }
 

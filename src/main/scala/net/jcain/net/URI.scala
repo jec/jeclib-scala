@@ -2,9 +2,11 @@ package net.jcain.net
 
 object URI {
 
-  object SchemeSpecific {
+  def apply(uri: String) = new URI(uri)
+
+  object Opaque {
     def unapply(uri: URI): Option[(String, String)] =
-      if (uri.isSchemeSpecificOnly) Some((uri.scheme, uri.schemeSpecificPart))
+      if (uri.isOpaque) Some((uri.scheme, uri.schemeSpecificPart))
       else None
   }
 
@@ -28,11 +30,10 @@ class URI(uri: String) {
   val query = _uri.getQuery
   val fragment = _uri.getFragment
 
-  def isSchemeSpecificOnly =
-    scheme != null && schemeSpecificPart != null && user == null && host == null && port == -1 && path == null
-
   def isFile =
     (scheme == "file") || (scheme == null && path != null)
+
+  def isOpaque = _uri.isOpaque
 
   override def toString = _uri.toString
 
