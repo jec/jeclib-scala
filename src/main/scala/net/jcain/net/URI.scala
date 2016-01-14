@@ -10,9 +10,17 @@ object URI {
       else None
   }
 
+  // this is a subset of Hierarchical
   object File {
     def unapply(uri: URI): Option[String] =
       if (uri.isFile) Some(uri.path)
+      else None
+  }
+
+  // this is a superset of File
+  object Hierarchical {
+    def unapply(uri: URI): Option[(String, String, Int, String, String, String)] =
+      if (!uri.isOpaque) Some((uri.scheme, uri.host, uri.port, uri.path, uri.query, uri.fragment))
       else None
   }
 

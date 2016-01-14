@@ -63,5 +63,31 @@ class URISpec extends FunSpec with Matchers {
       }
     }
 
+    describe("Hierarchical") {
+      describe("with non-hierarchical URI") {
+        it("returns no match") (new URIFixture("mailto:jeclib@jcain.net") {
+          uri match {
+            case URI.Hierarchical(_, _, _, _, _, _) => assert(false)
+            case _ => assert(true)
+          }
+        })
+      }
+      describe("with hierarchical URI") {
+        it("returns a match") (new URIFixture("http://hostname:1234/path/to/resource?qs=yes#a1") {
+          uri match {
+            case URI.Hierarchical(scheme, hostname, port, path, query, fragment) =>
+              scheme shouldBe "http"
+              hostname shouldBe "hostname"
+              port shouldBe 1234
+              path shouldBe "/path/to/resource"
+              query shouldBe "qs=yes"
+              fragment shouldBe "a1"
+            case _ => assert(false)
+          }
+        })
+      }
+    }
+
   }
+
 }
