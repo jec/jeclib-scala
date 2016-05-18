@@ -108,16 +108,20 @@ object Resolver {
     override def toString = s"IpSet(ipv4=$ipv4, ipv6=$ipv6)"
   }
 
-  // request messages
-  final case class Resolve(name: String, rtype: ResourceType)
-  protected final case class ResolveMore(name: String, rtype: ResourceType, domain: String)
-  final case class ExpireCacheEntries(now: Instant = Instant.now)
-  case object GetCacheEntries
+  //
+  // Protocol
+  //
 
-  // reply messages
+  // Messages received
+  final case class Resolve(name: String, rtype: ResourceType)
+  final case class ExpireCacheEntries(now: Instant = Instant.now)
+
+  // Private messages received
+  protected final case class ResolveMore(name: String, rtype: ResourceType, domain: String)
+
+  // Messages sent
   final case class Result(name: String, rtype: ResourceType, answer: Set[_ <: Resource])
   final case class NotFound(name: String, rtype: ResourceType)
-  final case class CacheEntries(cache: Map[(String, ResourceType), Set[_ <: Resource]])
 
 }
 
@@ -171,6 +175,7 @@ class Resolver(
   context.system.scheduler.schedule(1.minute, 1.minute, self, ExpireCacheEntries)
 
   def receive = {
+
     case Resolve(name, rtype) =>
       lookUp(name, rtype) match {
         case Some(result) =>
@@ -204,7 +209,6 @@ class Resolver(
 
     case ExpireCacheEntries(now) => expireCacheEntries(now)
 
-    case GetCacheEntries => sender() ! CacheEntries(cache.toMap)
   }
 
   protected def lookUp(name: String, rtype: ResourceType): Option[Set[_ <: Resolver.Resource]] =
@@ -252,12 +256,12 @@ class Resolver(
     while (positiveCacheTimes.nonEmpty && positiveCacheTimes.head.time.isBefore(positiveExpiry)) {
       val ct = positiveCacheTimes.dequeue()
       cache -= ((ct.name, ct.rtype))
-      log.debug(s"Expiring (${ct.name}, ${ct.rtype}) from positive cache")
+      log.debug("Expiring ({}, {}) from positive cache", ct.name, ct.rtype)
     }
     while (negativeCacheTimes.nonEmpty && negativeCacheTimes.head.time.isBefore(negativeExpiry)) {
-      val ct = positiveCacheTimes.dequeue()
+      val ct = negativeCacheTimes.dequeue()
       cache -= ((ct.name, ct.rtype))
-      log.debug(s"Expiring (${ct.name}, ${ct.rtype}) from negative cache")
+      log.debug("Expiring ({}, {}) from negative cache", ct.name, ct.rtype)
     }
   }
 

@@ -1,8 +1,9 @@
 package net.jcain.net
 
 import akka.actor.{ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+
 import scala.concurrent.duration._
 
 class ResolverTest extends TestKit(ActorSystem("ResolverTest"))
@@ -17,8 +18,10 @@ with ImplicitSender {
   val Jcain_v6_MX_RR = Jcain_v6_MX.foldLeft(Set.empty[AAAA_RR])((set, ipaddr) => set + new AAAA_RR(ipaddr))
 
   class ResolverFixture(label: String) {
-    val resolver = system.actorOf(Props(classOf[Resolver], 1.hour, 10.minutes), s"resolv-$label")
-    val testProbe = TestProbe(s"test-$label")
+    val resolver = TestActorRef(Props(classOf[Resolver], 1.hour, 10.minutes), s"$label-resolver")
+    val resolverRef = resolver.underlyingActor.asInstanceOf[Resolver]
+    val testProbe = TestProbe(s"$label-probe-test")
+    def stop() = system.stop(resolver)
   }
 
   override def afterAll(): Unit = system.terminate()
@@ -30,9 +33,7 @@ with ImplicitSender {
         "return NotFound" in new ResolverFixture("not-a") {
           resolver.tell(Resolve("blah.jcain.net", A), testProbe.ref)
           testProbe.expectMsg(NotFound("blah.jcain.net", A))
-
-          // stop test
-          system.stop(resolver)
+          stop()
         }
       }
 
@@ -40,9 +41,7 @@ with ImplicitSender {
         "return NotFound" in new ResolverFixture("not-aaaa") {
           resolver.tell(Resolve("blah.jcain.net", AAAA), testProbe.ref)
           testProbe.expectMsg(NotFound("blah.jcain.net", AAAA))
-
-          // stop test
-          system.stop(resolver)
+          stop()
         }
       }
 
@@ -50,9 +49,7 @@ with ImplicitSender {
         "return NotFound" in new ResolverFixture("not-mx") {
           resolver.tell(Resolve("jcain-domain-not-found.net", MX), testProbe.ref)
           testProbe.expectMsg(NotFound("jcain-domain-not-found.net", MX))
-
-          // stop test
-          system.stop(resolver)
+          stop()
         }
       }
     }
@@ -62,9 +59,7 @@ with ImplicitSender {
         "return A records" in new ResolverFixture("a") {
           resolver.tell(Resolve("mail.jcain.net", A), testProbe.ref)
           testProbe.expectMsg(Result("mail.jcain.net", A, Jcain_v4_MX_RR))
-
-          // stop test
-          system.stop(resolver)
+          stop()
         }
       }
 
@@ -72,9 +67,7 @@ with ImplicitSender {
         "return AAAA records" in new ResolverFixture("aaaa") {
           resolver.tell(Resolve("mail.jcain.net", AAAA), testProbe.ref)
           testProbe.expectMsg(Result("mail.jcain.net", AAAA, Jcain_v6_MX_RR))
-
-          // stop test
-          system.stop(resolver)
+          stop()
         }
       }
 
@@ -100,34 +93,45 @@ with ImplicitSender {
             })
           )
 
-          // stop test
-          system.stop(resolver)
+          stop()
         }
       }
     }
 
-    "receives ExpireCacheEntries" should {
-      "expire old entries" in new ResolverFixture("expire") {
-        // request an MX records
+    "receives ExpireCacheEntries" when {
+      "expire old positive entries" in new ResolverFixture("expire-pos") {
+        // request an MX record
         resolver.tell(Resolve("jcain.net", MX), testProbe.ref)
         testProbe.expectMsgPF() { case r: Result => r }
 
-        // check that they're in the cache
-        resolver.tell(GetCacheEntries, testProbe.ref)
-        val cache = testProbe.expectMsgPF() { case CacheEntries(c) => c }
-
-        cache.keySet shouldBe Set(("jcain.net", MX), ("mail.jcain.net.", A), ("mail.jcain.net.", AAAA))
+        // check that the relevant records are in the cache
+        resolverRef.cache.keySet shouldBe Set(("jcain.net", MX), ("mail.jcain.net.", A), ("mail.jcain.net.", AAAA))
 
         // tell the Resolver to expire the entries for a point 61 mins into the future
-        resolver.tell(ExpireCacheEntries(java.time.Instant.now.plusSeconds(3660)), testProbe.ref)
+        resolver ! ExpireCacheEntries(java.time.Instant.now.plusSeconds(3660))
 
         // wait and check that the cache is empty
-        Thread.sleep(2)
-        resolver.tell(GetCacheEntries, testProbe.ref)
-        testProbe.expectMsg(CacheEntries(Map()))
+        Thread.sleep(1000)
+        resolverRef.cache shouldBe empty
 
-        // stop test
-        system.stop(resolver)
+        stop()
+      }
+      "expire old negative entries" in new ResolverFixture("expire-neg") {
+        // request a non-existent A record
+        resolver.tell(Resolve("blah.jcain.net", A), testProbe.ref)
+        testProbe.expectMsgPF() { case r: NotFound => r }
+
+        // check that the record is in the cache
+        resolverRef.cache.keySet shouldBe Set(("blah.jcain.net", A))
+
+        // tell the Resolver to expire the entries for a point 61 mins into the future
+        resolver ! ExpireCacheEntries(java.time.Instant.now.plusSeconds(3660))
+
+        // wait and check that the cache is empty
+        Thread.sleep(1000)
+        resolverRef.cache shouldBe empty
+
+        stop()
       }
     }
 
