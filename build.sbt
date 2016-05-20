@@ -4,16 +4,16 @@ organization := "net.jcain"
 
 version := "0.2.0-SNAPSHOT"
 
-scalaVersion := "2.11.7"
+scalaVersion := "2.11.8"
 
 libraryDependencies ++= {
-  val akkaVersion       = "2.4.1"
+  val akkaVersion       = "2.4.6"
   Seq(
-    "ch.qos.logback"    % "logback-classic" % "1.1.3",
+    "ch.qos.logback"    % "logback-classic" % "1.1.7",
     "com.typesafe.akka" %% "akka-actor"     % akkaVersion,
     "com.typesafe.akka" %% "akka-slf4j"     % akkaVersion,
     "com.typesafe.akka" %% "akka-testkit"   % akkaVersion   % "test",
-    "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test"
+    "org.scalatest"     %% "scalatest"      % "2.2.6"       % "test"
   )
 }
 
