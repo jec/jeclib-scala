@@ -3,7 +3,6 @@ package net.jcain.net
 import java.net.InetAddress
 
 object IpAddr {
-
   val Families = Map('ipv4 -> ((Ip4Addr.maxValue, 32, 4)), 'ipv6 -> ((Ip6Addr.maxValue, 128, 16)))
 
   def apply(str: String): IpAddr = {
@@ -42,28 +41,29 @@ object IpAddr {
   }
 
   val rgen = new java.security.SecureRandom
-
 }
 
 abstract class IpAddr(val bytes: Array[Byte], val mask: Int) {
-
-  val asBigInt = IpAddr.toBigInt(bytes)
-  val maxBigInt = IpAddr.getMaxBigInt(bytes, mask, identity)
+  val asBigInt: BigInt = IpAddr.toBigInt(bytes)
+  val maxBigInt: BigInt = IpAddr.getMaxBigInt(bytes, mask, identity)
   val maskAddr: BigInt
   val inverseMaskAddr: BigInt
 
   def contains(that: IpAddr): Boolean =
     asBigInt <= that.asBigInt && that.asBigInt <= maxBigInt && asBigInt <= that.maxBigInt && that.maxBigInt <= maxBigInt
 
-  def subnet(int: BigInt) = IpAddr(asBigInt + (int & inverseMaskAddr), family, Some(identity))
+  def subnet(int: BigInt): IpAddr =
+    IpAddr(asBigInt + (int & inverseMaskAddr), family, Some(identity))
 
-  def subnet(bytes: Array[Byte]) = IpAddr(asBigInt + (IpAddr.toBigInt(bytes) & inverseMaskAddr), family, Some(identity))
+  def subnet(bytes: Array[Byte]): IpAddr =
+    IpAddr(asBigInt + (IpAddr.toBigInt(bytes) & inverseMaskAddr), family, Some(identity))
 
-  def random = if (isIdentity) this else {
-    val ary = new Array[Byte](((identity - mask) / 8.0).ceil.toInt)
-    IpAddr.rgen.nextBytes(ary)
-    subnet(ary)
-  }
+  def random: IpAddr =
+    if (isIdentity) this else {
+      val ary = new Array[Byte](((identity - mask) / 8.0).ceil.toInt)
+      IpAddr.rgen.nextBytes(ary)
+      subnet(ary)
+    }
 
   def reverse: String
 
@@ -73,12 +73,11 @@ abstract class IpAddr(val bytes: Array[Byte], val mask: Int) {
 
   def identity: Int
 
-  def isIdentity = mask == identity
+  def isIdentity: Boolean = mask == identity
 
   def family: Symbol
 
   def asString: String
 
-  override def hashCode = 41 * (41 * (41 + asBigInt.hashCode) + mask)
-
+  override def hashCode: Int = 41 * (41 * (41 + asBigInt.hashCode) + mask)
 }

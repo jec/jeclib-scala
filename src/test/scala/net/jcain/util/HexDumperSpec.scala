@@ -1,9 +1,9 @@
 package net.jcain.util
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.must.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class HexDumperSpec extends WordSpec with Matchers {
-
+class HexDumperSpec extends AnyWordSpec with Matchers {
   val Test1 = List(
     "00000000  54 68 69 73 20 69 73 20  61 20 74 65 73 74 2e 0d  |This is a test..|",
     "00000010  0a                                                |.|"
@@ -28,11 +28,10 @@ class HexDumperSpec extends WordSpec with Matchers {
   "HexDumper" when {
     "dump()" should {
       "output a hex dump" in {
-        HexDumper.dump("This is a test.\r\n".getBytes) shouldBe Test1
-        HexDumper.dump("This is a test\r\nof the emergency\r\nbroadcast system.\r\nThis is only a\r\ntest.\r\n".getBytes) shouldBe Test2
-        HexDumper.dump(Test3Array) shouldBe Test3
+        HexDumper.dump("This is a test.\r\n".getBytes) mustBe Test1
+        HexDumper.dump("This is a test\r\nof the emergency\r\nbroadcast system.\r\nThis is only a\r\ntest.\r\n".getBytes) mustBe Test2
+        HexDumper.dump(Test3Array) mustBe Test3
       }
     }
   }
-
 }

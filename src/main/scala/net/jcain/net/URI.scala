@@ -1,7 +1,6 @@
 package net.jcain.net
 
 object URI {
-
   def apply(uri: String) = new URI(uri)
 
   object Opaque {
@@ -23,26 +22,23 @@ object URI {
       if (!uri.isOpaque) Some((uri.scheme, uri.host, uri.port, uri.path, uri.query, uri.fragment))
       else None
   }
-
 }
 
 class URI(uri: String) {
-
   val _uri = new java.net.URI(uri)
-  val scheme = _uri.getScheme
-  val schemeSpecificPart = _uri.getSchemeSpecificPart
-  val user = _uri.getUserInfo
-  val host = _uri.getHost
-  val port = _uri.getPort
-  val path = _uri.getPath
-  val query = _uri.getQuery
-  val fragment = _uri.getFragment
+  val scheme: String = _uri.getScheme
+  val schemeSpecificPart: String = _uri.getSchemeSpecificPart
+  val user: String = _uri.getUserInfo
+  val host: String = _uri.getHost
+  val port: Int = _uri.getPort
+  val path: String = _uri.getPath
+  val query: String = _uri.getQuery
+  val fragment: String = _uri.getFragment
 
-  def isFile =
+  def isFile: Boolean =
     (scheme == "file") || (scheme == null && path != null)
 
-  def isOpaque = _uri.isOpaque
+  def isOpaque: Boolean = _uri.isOpaque
 
-  override def toString = _uri.toString
-
+  override def toString: String = _uri.toString
 }

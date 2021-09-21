@@ -4,33 +4,15 @@ organization := "net.jcain"
 
 version := "0.2.0-SNAPSHOT"
 
-scalaVersion := "2.11.8"
+scalaVersion := "2.13.6"
 
 libraryDependencies ++= {
-  val akkaVersion       = "2.4.6"
+  val akkaVersion = "2.6.16"
   Seq(
-    "ch.qos.logback"    % "logback-classic" % "1.1.7",
+    "ch.qos.logback"    % "logback-classic" % "1.2.6",
     "com.typesafe.akka" %% "akka-actor"     % akkaVersion,
     "com.typesafe.akka" %% "akka-slf4j"     % akkaVersion,
     "com.typesafe.akka" %% "akka-testkit"   % akkaVersion   % "test",
-    "org.scalatest"     %% "scalatest"      % "2.2.6"       % "test"
+    "org.scalatest"     %% "scalatest"      % "3.2.9"       % "test"
   )
 }
-
-scalacOptions ++= Seq(
-  "-deprecation",
-  "-encoding", "UTF-8",
-  "-feature",
-  "-language:existentials",
-  "-language:higherKinds",
-  "-language:implicitConversions",
-  "-unchecked",
-  //"-Xfatal-warnings",
-  "-Xlint",
-  "-Yno-adapted-args",
-  "-Ywarn-dead-code",
-  "-Ywarn-numeric-widen",
-  //"-Ywarn-value-discard",
-  "-Xfuture",
-  "-Ywarn-unused-import"
-)

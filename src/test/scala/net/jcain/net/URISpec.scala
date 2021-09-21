@@ -1,19 +1,18 @@
 package net.jcain.net
 
-import org.scalatest.{Matchers, FunSpec}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.must.Matchers
 
-class URISpec extends FunSpec with Matchers {
-
+class URISpec extends AnyFunSpec with Matchers {
   class URIFixture(uriString: String) {
-    val uri = URI(uriString)
+    val uri: URI = URI(uriString)
   }
 
   describe("URI") {
-
     describe("File") {
       describe("with non-file URI") {
         it("returns None") {
-          URI("http://jcain.net/") match {
+          URI("https://jcain.net/") match {
             case URI.File(path) => assert(false)
             case _ => assert(true)
           }
@@ -23,12 +22,12 @@ class URISpec extends FunSpec with Matchers {
         it("returns the path") {
           URI("/this/is/a/path") match {
             case URI.File(path) =>
-              path shouldBe "/this/is/a/path"
+              path mustBe "/this/is/a/path"
             case _ => assert(false)
           }
           URI("file:///this/is/a/path") match {
             case URI.File(path) =>
-              path shouldBe "/this/is/a/path"
+              path mustBe "/this/is/a/path"
             case _ => assert(false)
           }
         }
@@ -37,26 +36,26 @@ class URISpec extends FunSpec with Matchers {
 
     describe("Opaque") {
       describe("with non-opaque URI") {
-        it("returns None") (new URIFixture("http://jcain.net/") {
+        it("returns None") (new URIFixture("https://jcain.net/") {
           uri match {
             case URI.Opaque(scheme, schemeSpecificPart) => assert(false)
             case _ => assert(true)
           }
-          uri.isOpaque shouldBe false
+          uri.isOpaque mustBe false
         })
       }
       describe("with opaque URI") {
         it("returns the scheme and scheme-specific-part")(new URIFixture("mailto:jeclib@jcain.net") {
           uri match {
             case URI.Opaque(scheme, schemeSpecificPart) =>
-              scheme shouldBe "mailto"
-              schemeSpecificPart shouldBe "jeclib@jcain.net"
+              scheme mustBe "mailto"
+              schemeSpecificPart mustBe "jeclib@jcain.net"
             case _ => assert(false)
           }
           uri match {
             case URI.Opaque("nosuchscheme", schemeSpecificPart) => assert(false)
             case URI.Opaque("mailto", schemeSpecificPart) =>
-              schemeSpecificPart shouldBe "jeclib@jcain.net"
+              schemeSpecificPart mustBe "jeclib@jcain.net"
             case _ => assert(false)
           }
         })
@@ -73,21 +72,19 @@ class URISpec extends FunSpec with Matchers {
         })
       }
       describe("with hierarchical URI") {
-        it("returns a match") (new URIFixture("http://hostname:1234/path/to/resource?qs=yes#a1") {
+        it("returns a match") (new URIFixture("https://hostname:1234/path/to/resource?qs=yes#a1") {
           uri match {
             case URI.Hierarchical(scheme, hostname, port, path, query, fragment) =>
-              scheme shouldBe "http"
-              hostname shouldBe "hostname"
-              port shouldBe 1234
-              path shouldBe "/path/to/resource"
-              query shouldBe "qs=yes"
-              fragment shouldBe "a1"
+              scheme mustBe "https"
+              hostname mustBe "hostname"
+              port mustBe 1234
+              path mustBe "/path/to/resource"
+              query mustBe "qs=yes"
+              fragment mustBe "a1"
             case _ => assert(false)
           }
         })
       }
     }
-
   }
-
 }

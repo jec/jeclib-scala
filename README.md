@@ -68,6 +68,10 @@ _produces:_
 This DNS resolver is an Akka Actor that does DNS resolution of most common
 resource record types (A, AAAA, CNAME, MX, NS, SOA) and caches the results.
 
+_Note: The quick and dirty testing does not stub out the DNS lookups and
+results in network access. Further, some tests are currently failing because of
+obsolete names._
+
 # URI
 
 This is a simple wrapper around java.net.URI that provides a couple unapply()

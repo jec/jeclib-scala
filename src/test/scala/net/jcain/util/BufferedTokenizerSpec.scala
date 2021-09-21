@@ -1,9 +1,8 @@
 package net.jcain.util
 
-import org.scalatest.FunSpec
+import org.scalatest.funspec.AnyFunSpec
 
-class BufferedTokenizerSpec extends FunSpec {
-
+class BufferedTokenizerSpec extends AnyFunSpec {
   describe("BufferedTokenizer") {
     it("should split input into tokens on the delimiter") {
       val buffer = new BufferedTokenizer
@@ -15,5 +14,4 @@ class BufferedTokenizerSpec extends FunSpec {
       assert(result3 == List("emergency", "broadcast", "system"))
     }
   }
-
 }

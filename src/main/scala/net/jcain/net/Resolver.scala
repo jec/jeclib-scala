@@ -1,7 +1,8 @@
 package net.jcain.net
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import collection.JavaConversions._
+
+import scala.collection.convert.ImplicitConversions.`enumeration AsScalaIterator`
 import java.time.Instant
 import javax.naming.Context
 import javax.naming.directory.{Attribute, InitialDirContext}
@@ -12,9 +13,8 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object Resolver {
-
-  val Default_Positive_TTL =  1.hour
-  val Default_Negative_TTL = 10.minutes
+  val Default_Positive_TTL: FiniteDuration =  1.hour
+  val Default_Negative_TTL: FiniteDuration = 10.minutes
 
   //
   // ResourceTypes: used in requests
@@ -23,23 +23,23 @@ object Resolver {
   sealed trait ResourceType {
     def parseResult(attr: Attribute): Set[_ <: Resource]
     def asString: String
-    override def toString = asString
+    override def toString: String = asString
   }
 
   object A extends ResourceType {
-    def parseResult(attr: Attribute) =
+    def parseResult(attr: Attribute): Set[A_RR] =
       attr.getAll.foldLeft(Set.empty[A_RR])((set, name) => set + new A_RR(Ip4Addr(name.asInstanceOf[String])))
     def asString = "A"
   }
 
   object AAAA extends ResourceType {
-    def parseResult(attr: Attribute) =
+    def parseResult(attr: Attribute): Set[AAAA_RR] =
       attr.getAll.foldLeft(Set.empty[AAAA_RR])((set, name) => set + new AAAA_RR(Ip6Addr(name.asInstanceOf[String])))
     def asString = "AAAA"
   }
 
   object MX extends ResourceType {
-    def parseResult(attr: Attribute) = {
+    def parseResult(attr: Attribute): Set[MX_RR] = {
       val prefs = attr.getAll.foldLeft(HashMap.empty[Int, List[String]])((map, entry) => {
         val pieces = entry.asInstanceOf[String].split(" ")
         val pref = pieces(0).toInt
@@ -48,7 +48,7 @@ object Resolver {
         else
           map + ((pref, List(pieces(1))))
       })
-      prefs.foldLeft(Set.empty[Resource])({
+      prefs.foldLeft(Set.empty[MX_RR])({
         case (mxrrs, (pref, hosts)) =>
           mxrrs + new MX_RR(pref, hosts.foldLeft(HashMap.empty[String, IpSet])((map, host) => map + ((host, new IpSet(Set(), Set())))))
       })
@@ -63,25 +63,25 @@ object Resolver {
   sealed trait Resource
 
   class A_RR(val address: Ip4Addr) extends Resource {
-    override def equals(other: Any) = other match {
+    override def equals(other: Any): Boolean = other match {
       case that: A_RR => address == that.address
       case _ => false
     }
-    override def hashCode = address.hashCode
+    override def hashCode: Int = address.hashCode
     override def toString = s"A_RR(address=$address)"
   }
 
   class AAAA_RR(val address: Ip6Addr) extends Resource {
-    override def equals(other: Any) = other match {
+    override def equals(other: Any): Boolean = other match {
       case that: AAAA_RR => address == that.address
       case _ => false
     }
-    override def hashCode = address.hashCode
+    override def hashCode: Int = address.hashCode
     override def toString = s"AAAA_RR(address=$address)"
   }
 
   class MX_RR(val preference: Int, var exchanges: Map[String, IpSet]) extends Resource {
-    def hostnames = exchanges.keySet
+    def hostnames: Set[String] = exchanges.keySet
     def addIps(ips: Set[_ <: Resource], domain: String): Boolean = {
       if (exchanges.contains(domain)) ips match {
         case ip4s if ips.find(x => true).get.isInstanceOf[A_RR] =>
@@ -91,20 +91,20 @@ object Resolver {
       }
       false
     }
-    override def equals(other: Any) = other match {
+    override def equals(other: Any): Boolean = other match {
       case that: MX_RR => preference == that.preference && exchanges == that.exchanges
       case _ => false
     }
-    override def hashCode = 41 * (41 + preference) + exchanges.hashCode
+    override def hashCode: Int = 41 * (41 + preference) + exchanges.hashCode
     override def toString = s"MX_RR(preference=$preference, exchanges=$exchanges)"
   }
 
   class IpSet(var ipv4: Set[Ip4Addr], var ipv6: Set[Ip6Addr]) {
-    override def equals(other: Any) = other match {
+    override def equals(other: Any): Boolean = other match {
       case that: IpSet => ipv4 == that.ipv4 && ipv6 == that.ipv6
       case _ => false
     }
-    override def hashCode = 41 * (41 + ipv4.hashCode) + ipv6.hashCode
+    override def hashCode: Int = 41 * (41 + ipv4.hashCode) + ipv6.hashCode
     override def toString = s"IpSet(ipv4=$ipv4, ipv6=$ipv6)"
   }
 
@@ -122,24 +122,22 @@ object Resolver {
   // Messages sent
   final case class Result(name: String, rtype: ResourceType, answer: Set[_ <: Resource])
   final case class NotFound(name: String, rtype: ResourceType)
-
 }
 
 class Resolver(
   positiveTtl: FiniteDuration = Resolver.Default_Positive_TTL,
   negativeTtl: FiniteDuration = Resolver.Default_Negative_TTL
 ) extends Actor with ActorLogging {
-
   import Resolver._
 
   case class CacheTime(name: String, rtype: ResourceType, time: Instant = Instant.now) {
-    def compare(that: CacheTime) =
+    def compare(that: CacheTime): Int =
       if (time.isBefore(that.time)) -1 else if (time.isAfter(that.time)) 1 else 0
-    override def equals(other: Any) = other match {
+    override def equals(other: Any): Boolean = other match {
       case that: CacheTime => name == that.name && rtype == that.rtype && time == that.time
       case _ => false
     }
-    override def hashCode = 41 * (41 * (41 + name.hashCode) + rtype.hashCode) + time.hashCode
+    override def hashCode: Int = 41 * (41 * (41 + name.hashCode) + rtype.hashCode) + time.hashCode
     override def toString = s"CacheTime($name, $rtype, $time)"
   }
 
@@ -164,18 +162,18 @@ class Resolver(
     }
   }
 
-  val cache = mutable.HashMap[(String, ResourceType), Set[_ <: Resolver.Resource]]()
-  val positiveCacheTimes = mutable.Queue[CacheTime]()
-  val negativeCacheTimes = mutable.Queue[CacheTime]()
-  val pending = mutable.HashMap[String, PendingMx]()
+  val cache: mutable.HashMap[(String, ResourceType), Set[_ <: Resource]] =
+    mutable.HashMap[(String, ResourceType), Set[_ <: Resource]]()
+  val positiveCacheTimes: mutable.Queue[CacheTime] = mutable.Queue[CacheTime]()
+  val negativeCacheTimes: mutable.Queue[CacheTime] = mutable.Queue[CacheTime]()
+  val pending: mutable.HashMap[String, PendingMx] = mutable.HashMap[String, PendingMx]()
   val env = new Properties
   env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.dns.DnsContextFactory")
   val ctx = new InitialDirContext(env)
 
   context.system.scheduler.schedule(1.minute, 1.minute, self, ExpireCacheEntries)
 
-  def receive = {
-
+  def receive: Receive = {
     case Resolve(name, rtype) =>
       lookUp(name, rtype) match {
         case Some(result) =>
@@ -208,7 +206,6 @@ class Resolver(
       }
 
     case ExpireCacheEntries(now) => expireCacheEntries(now)
-
   }
 
   protected def lookUp(name: String, rtype: ResourceType): Option[Set[_ <: Resolver.Resource]] =
@@ -245,12 +242,12 @@ class Resolver(
       }
     }
 
-  protected def addToCache(name: String, rtype: ResourceType, result: Set[_ <: Resource]) = {
+  protected def addToCache(name: String, rtype: ResourceType, result: Set[_ <: Resource]): mutable.Queue[CacheTime] = {
     cache((name, rtype)) = result
     (if (result.isEmpty) negativeCacheTimes else positiveCacheTimes) += new CacheTime(name, rtype)
   }
 
-  protected def expireCacheEntries(now: Instant) = {
+  protected def expireCacheEntries(now: Instant): Unit = {
     val positiveExpiry = now.minusSeconds(positiveTtl.toSeconds)
     val negativeExpiry = now.minusSeconds(negativeTtl.toSeconds)
     while (positiveCacheTimes.nonEmpty && positiveCacheTimes.head.time.isBefore(positiveExpiry)) {
@@ -264,5 +261,4 @@ class Resolver(
       log.debug("Expiring ({}, {}) from negative cache", ct.name, ct.rtype)
     }
   }
-
 }
